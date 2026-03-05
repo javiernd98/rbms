@@ -42,8 +42,9 @@ class EBM(ABC):
 
     @abstractmethod
     def sample_visibles(
-        self, chains: dict[str, Tensor], beta: float = 1.0
+        self, chains: dict[str, Tensor], beta: float = 1.0, context: Tensor | None = None
     ) -> dict[str, Tensor]:
+        """Updated to accept an optional context vector u."""
         """Sample the visible layer conditionally to the hidden one.
 
         Args:
@@ -56,7 +57,8 @@ class EBM(ABC):
         ...
 
     @abstractmethod
-    def compute_energy_visibles(self, v: Tensor) -> Tensor:
+    def compute_energy_visibles(self, v: Tensor, context: Tensor | None = None) -> Tensor:
+        """Energy marginalized over hidden units, conditioned on context u."""
         """Returns the marginalized energy of the model computed on the visible configurations
 
         Args:
@@ -207,7 +209,7 @@ class EBM(ABC):
 
     @abstractmethod
     def sample_state(
-        self, chains: dict[str, Tensor], n_steps: int, beta: float = 1.0
+        self, chains: dict[str, Tensor], n_steps: int, beta: float = 1.0, context: Tensor | None = None
     ) -> dict[str, Tensor]:
         """Sample the model for n_steps
 
@@ -269,7 +271,7 @@ class RBM(EBM):
 
     @abstractmethod
     def sample_hiddens(
-        self, chains: dict[str, Tensor], beta: float = 1.0
+        self, chains: dict[str, Tensor], beta: float = 1.0, context: Tensor | None = None
     ) -> dict[str, Tensor]:
         """Sample the hidden layer conditionally to the visible one.
 
@@ -283,7 +285,7 @@ class RBM(EBM):
         ...
 
     @abstractmethod
-    def compute_energy(self, v: Tensor, h: Tensor) -> Tensor:
+    def compute_energy(self, v: Tensor, h: Tensor, context: Tensor | None = None) -> Tensor:
         """Compute the energy of the RBM on the visible and hidden variables.
 
         Args:
