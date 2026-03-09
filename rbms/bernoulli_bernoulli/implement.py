@@ -123,7 +123,7 @@ def _init_chains(
     num_visibles, _ = weight_matrix.shape
     device = weight_matrix.device
     dtype = weight_matrix.dtype
-    # Handle negative number of samples
+    # Turn the weights of the chains into normalized weights
     if num_samples <= 0:
         if start_v is not None:
             num_samples = start_v.shape[0]
