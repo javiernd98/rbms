@@ -312,7 +312,7 @@ class RBM(EBM):
         """Number of hidden units"""
         ...
 
-    def sample_state(self, chains, n_steps, context = none, beta=1.0):
+    def sample_state(self, chains, n_steps, context = None, beta=1.0):
         new_chains = {
             "visible": chains["visible"].clone(),
             "weights": chains["weights"].clone(),
