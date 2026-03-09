@@ -228,6 +228,30 @@ def add_args_regularization(parser: argparse.ArgumentParser) -> argparse.Argumen
     )
     return parser
 
+def add_args_generation(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """Add an argument group to the parser for sequential generation tasks"""
+    gen_args = parser.add_argument_group("Generation")
+    gen_args.add_argument(
+        "--gen_steps",
+        type=int,
+        default=100,
+        help="(Defaults to 100). Number of future timesteps to generate.",
+    )
+    gen_args.add_argument(
+        "--num_seqs",
+        type=int,
+        default=10,
+        help="(Defaults to 10). Number of parallel sequences to generate.",
+    )
+    gen_args.add_argument(
+        "--seed_origin",
+        type=str,
+        choices=["train", "test"],
+        default="test",
+        help="(Defaults to test). Choose whether to extract the seed context from the train dataset (-d) or the test dataset (--test_dataset).",
+    )
+    return parser
+
 
 def remove_argument(parser, arg):
     """Args:
