@@ -44,6 +44,9 @@ def train(
         batch = train_dataset.batch(batch_size)
         data, weights = batch["data"], batch["weights"]
 
+        # try to extract context in case its provided
+        context = batch.get("context", None)
+
         for opt in optimizer:
             opt.zero_grad(set_to_none=False)
 
@@ -53,7 +56,11 @@ def train(
             weights=weights,
             start_v=data,
         )
-        parallel_chains = sampler.get_conf_grad(batch=data)
+
+        if context is not None:
+            curr_batch["context"] = context
+
+        parallel_chains = sampler.get_conf_grad(batch=data, context=context)
 
         params.compute_gradient(
             data=curr_batch,
