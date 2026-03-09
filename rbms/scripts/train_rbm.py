@@ -54,6 +54,8 @@ def main(args, map_model=map_model):
         remove_duplicates=args["remove_duplicates"],
         device=args["device"],
         dtype=args["dtype"],
+        model_type=args["model_type"], 
+        n_past=args.get("n_past", 1), 
     )
     flags = ["checkpoint"]
     if not args["restore"]:
