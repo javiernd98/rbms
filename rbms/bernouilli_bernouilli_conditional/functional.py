@@ -31,16 +31,8 @@ def sample_hiddens(
     Returns:
         dict[str, Tensor]: The updated chains with sampled hidden states.
     """
-    context = chains.get("context")
-    _, dyn_hbias = _get_dynamic_biases(context, params.vbias, params.hbias, params.A, params.B)
-    
-    chains["hidden"], chains["hidden_mag"] = _sample_hiddens_cond(
-        v=chains["visible"],
-        weight_matrix=params.weight_matrix,
-        dyn_hbias=dyn_hbias,
-        beta=beta,
-    )
-    return chains
+    u = chains.get("context")
+    return params.sample_hiddens(chains=chains, beta=beta, context=u)
 
 
 def sample_visibles(
@@ -57,16 +49,8 @@ def sample_visibles(
     Returns:
         dict[str, Tensor]: The updated chains with sampled visible states.
     """
-    context = chains.get("context")
-    dyn_vbias, _ = _get_dynamic_biases(context, params.vbias, params.hbias, params.A, params.B)
-    
-    chains["visible"], chains["visible_mag"] = _sample_visibles_cond(
-        h=chains["hidden"],
-        weight_matrix=params.weight_matrix,
-        dyn_vbias=dyn_vbias,
-        beta=beta,
-    )
-    return chains
+    u = chains.get("context")
+    return params.sample_visibles(chains=chains, beta=beta, context=u)
 
 
 def compute_energy(
@@ -86,14 +70,7 @@ def compute_energy(
     Returns:
         Tensor: The computed energy.
     """
-    dyn_vbias, dyn_hbias = _get_dynamic_biases(context, params.vbias, params.hbias, params.A, params.B)
-    return _compute_energy_cond(
-        v=v,
-        h=h,
-        dyn_vbias=dyn_vbias,
-        dyn_hbias=dyn_hbias,
-        weight_matrix=params.weight_matrix,
-    )
+    return params.compute_energy(v=v, h=h, context=context)
 
 
 def compute_energy_visibles(v: Tensor, params: BBCRBM, context: Tensor | None = None) -> Tensor:
@@ -106,13 +83,7 @@ def compute_energy_visibles(v: Tensor, params: BBCRBM, context: Tensor | None = 
     Returns:
         Tensor: The computed energy.
     """
-    dyn_vbias, dyn_hbias = _get_dynamic_biases(context, params.vbias, params.hbias, params.A, params.B)
-    return _compute_energy_visibles_cond(
-        v=v, 
-        dyn_vbias=dyn_vbias, 
-        dyn_hbias=dyn_hbias, 
-        weight_matrix=params.weight_matrix,
-    )
+    return params.compute_energy_visibles(v=v, context=context)
 
 
 def compute_energy_hiddens(h: Tensor, params: BBCRBM, context: Tensor | None = None) -> Tensor:
@@ -123,13 +94,7 @@ def compute_energy_hiddens(h: Tensor, params: BBCRBM, context: Tensor | None = N
         context (Tensor): past visible configurations
         params (BBCRBM): Parameters of the CRBM
     """
-    dyn_vbias, dyn_hbias = _get_dynamic_biases(context, params.vbias, params.hbias, params.A, params.B)
-    return _compute_energy_hiddens_cond(
-        h=h, 
-        dyn_vbias=dyn_vbias, 
-        dyn_hbias=dyn_hbias, 
-        weight_matrix=params.weight_matrix
-    )
+    return params.compute_energy_hiddens(h=h, context=context)
 
 
 def compute_gradient(

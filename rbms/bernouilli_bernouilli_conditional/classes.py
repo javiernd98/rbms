@@ -13,6 +13,7 @@ from rbms.bernoulli_bernoulli_conditional.implement import (
     _init_parameters_cond,
     _sample_hiddens_cond,
     _sample_visibles_cond,
+    _get_dynamic_biases,
 )
 from rbms.classes import RBM
 from rbms.custom_fn import check_keys_dict
@@ -103,37 +104,31 @@ class BBCRBM(RBM):
         )
 
     def compute_energy(self, v: Tensor, h: Tensor, context: Tensor | None = None) -> Tensor:
+        dyn_vbias, dyn_hbias = _get_dynamic_biases(context, self.vbias, self.hbias, self.A, self.B)
         return _compute_energy_cond(
-            v=v,
-            h=h,
-            u=context,
-            vbias=self.vbias,
-            hbias=self.hbias,
-            weight_matrix=self.weight_matrix,
-            A=self.A,
-            B=self.B
+            v=v, 
+            h=h, 
+            dyn_vbias=dyn_vbias, 
+            dyn_hbias=dyn_hbias, 
+            weight_matrix=self.weight_matrix
         )
 
     def compute_energy_hiddens(self, h: Tensor, context: Tensor | None = None) -> Tensor:
+        dyn_vbias, dyn_hbias = _get_dynamic_biases(context, self.vbias, self.hbias, self.A, self.B)
         return _compute_energy_hiddens_cond(
-            h=h,
-            u=context,
-            vbias=self.vbias,
-            hbias=self.hbias,
-            weight_matrix=self.weight_matrix,
-            A=self.A,
-            B=self.B
+            h=h, 
+            dyn_vbias=dyn_vbias, 
+            dyn_hbias=dyn_hbias, 
+            weight_matrix=self.weight_matrix
         )
 
     def compute_energy_visibles(self, v: Tensor, context: Tensor | None = None) -> Tensor:
+        dyn_vbias, dyn_hbias = _get_dynamic_biases(context, self.vbias, self.hbias, self.A, self.B)
         return _compute_energy_visibles_cond(
-            v=v,
-            u=context,
-            vbias=self.vbias,
-            hbias=self.hbias,
-            weight_matrix=self.weight_matrix,
-            A=self.A,
-            B=self.B
+            v=v, 
+            dyn_vbias=dyn_vbias, 
+            dyn_hbias=dyn_hbias, 
+            weight_matrix=self.weight_matrix
         )
 
     def compute_gradient(self, data, chains, centered=True):
@@ -232,23 +227,21 @@ class BBCRBM(RBM):
         ).item()
 
     def sample_hiddens(self, chains: dict[str, Tensor], beta=1, context: Tensor | None = None) -> dict[str, Tensor]:
+        dyn_vbias, dyn_hbias = _get_dynamic_biases(context, self.vbias, self.hbias, self.A, self.B)
         chains["hidden"], chains["hidden_mag"] = _sample_hiddens_cond(
-            v=chains["visible"],
-            u=context,
-            weight_matrix=self.weight_matrix,
-            hbias=self.hbias,
-            B=self.B,
+            v=chains["visible"], 
+            weight_matrix=self.weight_matrix, 
+            dyn_hbias=dyn_hbias, 
             beta=beta,
         )
         return chains
 
     def sample_visibles(self, chains: dict[str, Tensor], beta=1, context: Tensor | None = None) -> dict[str, Tensor]:
+        dyn_vbias, dyn_hbias = _get_dynamic_biases(context, self.vbias, self.hbias, self.A, self.B)
         chains["visible"], chains["visible_mag"] = _sample_visibles_cond(
-            h=chains["hidden"],
-            u=context,
-            weight_matrix=self.weight_matrix,
-            vbias=self.vbias,
-            A=self.A,
+            h=chains["hidden"], 
+            weight_matrix=self.weight_matrix, 
+            dyn_vbias=dyn_vbias, 
             beta=beta,
         )
         return chains

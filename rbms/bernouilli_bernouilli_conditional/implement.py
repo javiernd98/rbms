@@ -12,7 +12,7 @@ def _get_dynamic_biases(
 
 @torch.jit.script
 def _sample_hiddens_cond(
-    v: Tensor, u: Tensor | None, weight_matrix: Tensor, hbias: Tensor, B: Tensor, beta: float = 1.0
+    v: Tensor, weight_matrix: Tensor, dyn_hbias: Tensor, beta: float = 1.0
 ) -> tuple[Tensor, Tensor]:
     mh = torch.sigmoid(beta * (dyn_hbias + (v @ weight_matrix)))
     h = torch.bernoulli(mh)
@@ -21,7 +21,7 @@ def _sample_hiddens_cond(
 
 @torch.jit.script
 def _sample_visibles_cond(
-    h: Tensor, u: Tensor | None, weight_matrix: Tensor, vbias: Tensor, A: Tensor, beta: float = 1.0
+    h: Tensor, weight_matrix: Tensor, dyn_vbias: Tensor, beta: float = 1.0
 ) -> tuple[Tensor, Tensor]:
     mv = torch.sigmoid(beta * (dyn_vbias + (h @ weight_matrix.T)))
     v = torch.bernoulli(mv)
@@ -30,17 +30,9 @@ def _sample_visibles_cond(
 
 @torch.jit.script
 def _compute_energy_cond(
-    v: Tensor,
-    h: Tensor,
-    u: Tensor | None,
-    vbias: Tensor,
-    hbias: Tensor,
-    weight_matrix: Tensor,
-    A: Tensor,
-    B: Tensor,
+    v: Tensor, h: Tensor, dyn_vbias: Tensor, dyn_hbias: Tensor, weight_matrix: Tensor
 ) -> Tensor:
-    fields = torch.multiply(v, dyn_vbias).sum(1) + torch.multiply(h, dyn_hbias
-    ).sum(1)
+    fields = torch.multiply(v, dyn_vbias).sum(1) + torch.multiply(h, dyn_hbias).sum(1)
     interaction = torch.multiply(
         v, torch.tensordot(h, weight_matrix, dims=[[1], [1]])
     ).sum(1)
@@ -50,7 +42,7 @@ def _compute_energy_cond(
 
 @torch.jit.script
 def _compute_energy_visibles_cond(
-    v: Tensor, u: Tensor | None, vbias: Tensor, hbias: Tensor, weight_matrix: Tensor, A: Tensor, B: Tensor
+    v: Tensor, dyn_vbias: Tensor, dyn_hbias: Tensor, weight_matrix: Tensor
 ) -> Tensor:
     field = torch.multiply(v, dyn_vbias).sum(1)
     exponent = dyn_hbias + (v @ weight_matrix)
@@ -60,7 +52,7 @@ def _compute_energy_visibles_cond(
 
 @torch.jit.script
 def _compute_energy_hiddens_cond(
-    h: Tensor, u: Tensor | None, vbias: Tensor, hbias: Tensor, weight_matrix: Tensor, A: Tensor, B: Tensor
+    h: Tensor, dyn_vbias: Tensor, dyn_hbias: Tensor, weight_matrix: Tensor
 ) -> Tensor:
     field = torch.multiply(h, dyn_hbias).sum(1)
     exponent = dyn_vbias + (h @ weight_matrix.T)
@@ -161,7 +153,7 @@ def _init_chains_cond(
     num_visibles, _ = weight_matrix.shape
     device = weight_matrix.device
     dtype = weight_matrix.dtype
-    # Turn the weights of the chains into normalized weights
+
     if num_samples <= 0:
         if start_v is not None:
             num_samples = start_v.shape[0]
@@ -169,17 +161,14 @@ def _init_chains_cond(
             raise ValueError(f"Got negative num_samples arg: {num_samples}")
 
     if start_v is None:
-        # Dummy mean visible
         mv = torch.ones(size=(num_samples, num_visibles), device=device, dtype=dtype) / 2
         v = torch.bernoulli(mv)
     else:
-        # Dummy mean visible
         mv = torch.ones_like(start_v, device=device, dtype=dtype) / 2
         v = start_v.to(device=device, dtype=dtype)
 
-    # Note: We initialize without 'u' here just to populate the chains dict.
-    # The true 'u' conditioned sampling happens during the sampler step.
-    h, mh = _sample_hiddens_cond(v=v, u=None, weight_matrix=weight_matrix, hbias=hbias, B=torch.empty(0))
+    # Para arrancar la cadena por primera vez, asumimos que no hay contexto (dyn_hbias = hbias)
+    h, mh = _sample_hiddens_cond(v=v, weight_matrix=weight_matrix, dyn_hbias=hbias)
     return v, h, mv, mh
 
 def _init_parameters_cond(

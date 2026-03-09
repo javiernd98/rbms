@@ -201,3 +201,132 @@ class RBMDataset(Dataset):
             case _:
                 pass
         return sampled_batch
+
+
+class CRBMDataset(RBMDataset):
+    """A dataset class for Conditional RBM training and evaluation."""
+
+    def __init__(
+        self,
+        data: np.ndarray,
+        labels: np.ndarray,
+        weights: np.ndarray,
+        names: np.ndarray,
+        dataset_name: str,
+        variable_type: str,
+        n_past: int = 1,  # size of the temporal context
+        device: torch.device | str = "cuda",
+        dtype: torch.dtype = torch.float32,
+    ) -> None:
+        # Llamamos al init de la clase padre (RBMDataset) para que inicialice los tensores
+        super().__init__(
+            data=data,
+            labels=labels,
+            weights=weights,
+            names=names,
+            dataset_name=dataset_name,
+            variable_type=variable_type,
+            device=device,
+            dtype=dtype,
+        )
+        self.n_past = n_past
+
+    def __len__(self) -> int:
+        """Get the number of samples in the dataset.
+        En una CRBM, perdemos los primeros 'n_past' instantes porque no tienen historia.
+        """
+        return max(0, self.data.shape[0] - self.n_past)
+
+    def __getitem__(self, index: int) -> dict[str, Union[np.ndarray, torch.Tensor]]:
+        # El target 'v' está desplazado n_past posiciones
+        idx = index + self.n_past
+        
+        # El contexto 'u' son los n_past pasos anteriores concatenados (flattened)
+        u = self.data[index:idx].flatten()
+        
+        return {
+            "data": self.data[idx],
+            "context": u,
+            "labels": self.labels[idx] if self.labels is not None else -1,
+            "weights": self.weights[idx] if self.weights is not None else 1.0,
+            "names": self.names[idx] if self.names is not None else "",
+        }
+
+    def batch(self, batch_size: int) -> dict[str, Tensor]:
+        valid_len = len(self)
+        if valid_len == 0:
+            raise ValueError(f"El dataset es demasiado corto para n_past={self.n_past}.")
+            
+        # Elegimos instantes aleatorios pero respetando la ventana de contexto
+        rand_idx = torch.randperm(valid_len)[:batch_size]
+        
+        v_batch, u_batch, w_batch, labels_batch = [], [], [], []
+        
+        for i in rand_idx:
+            idx = i + self.n_past
+            v_batch.append(self.data[idx])
+            u_batch.append(self.data[i:idx].flatten())
+            w_batch.append(self.weights[idx])
+            if self.labels is not None:
+                labels_batch.append(self.labels[idx])
+                
+        sampled_batch = {
+            "data": torch.stack(v_batch),
+            "context": torch.stack(u_batch),
+            "weights": torch.stack(w_batch),
+        }
+        
+        if self.labels is not None and len(labels_batch) > 0:
+            sampled_batch["labels"] = torch.stack(labels_batch)
+            
+        if self.variable_type == "bernoulli":
+            sampled_batch["data"] = torch.bernoulli(sampled_batch["data"])
+            
+        return sampled_batch
+
+    def split_train_test(
+        self,
+        rng: np.random.Generator,
+        train_size: float,
+        test_size: float | None = None,
+    ) -> tuple['CRBMDataset', 'CRBMDataset']:
+        """
+        We modify this function so it doesnt shuffle the dataset breaking the temporal otder.
+        """
+        num_samples = self.data.shape[0]
+        if test_size is None:
+            test_size = 1.0 - train_size
+
+        train_len = int(train_size * num_samples)
+        test_len = int(test_size * num_samples)
+
+        # Hacemos split sin barajar (secuencial)
+        train_dataset = CRBMDataset(
+            data=self.data[:train_len].cpu().numpy(),
+            labels=self.labels[:train_len].cpu().numpy() if self.labels is not None else np.zeros(0),
+            weights=self.weights[:train_len].cpu().numpy(),
+            names=self.names[:train_len],
+            dataset_name=self.dataset_name,
+            variable_type=self.variable_type,
+            n_past=self.n_past,
+            device=self.device,
+            dtype=self.dtype,
+        )
+        
+        test_dataset = None
+        if test_size > 0:
+            test_dataset = CRBMDataset(
+                data=self.data[train_len : train_len + test_len].cpu().numpy(),
+                labels=self.labels[train_len : train_len + test_len].cpu().numpy() if self.labels is not None else np.zeros(0),
+                weights=self.weights[train_len : train_len + test_len].cpu().numpy(),
+                names=self.names[train_len : train_len + test_len],
+                dataset_name=self.dataset_name,
+                variable_type=self.variable_type,
+                n_past=self.n_past,
+                device=self.device,
+                dtype=self.dtype,
+            )
+        else:
+            raise ValueError("Could not split in train test")
+            
+        return train_dataset, test_dataset
