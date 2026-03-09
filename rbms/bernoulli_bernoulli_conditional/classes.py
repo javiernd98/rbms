@@ -184,6 +184,7 @@ class BBCRBM(RBM):
 
     @staticmethod
     def init_parameters(num_hiddens, dataset, device, dtype, var_init=0.0001, n_past=1):
+        n_past_real = getattr(dataset, "n_past", n_past)
         data = dataset.data
         # Convert to torch Tensor if necessary
         if isinstance(data, np.ndarray):
@@ -195,9 +196,9 @@ class BBCRBM(RBM):
             device=device,
             dtype=dtype,
             var_init=var_init,
-            n_past=n_past
+            n_past=n_past_real
         )
-        return BBCRBM(weight_matrix=weight_matrix, vbias=vbias, hbias=hbias, A=A, B=B, n_past=n_past)
+        return BBCRBM(weight_matrix=weight_matrix, vbias=vbias, hbias=hbias, A=A, B=B, n_past=n_past_real)
 
     def named_parameters(self) -> dict[str, np.ndarray]:
         return {
