@@ -14,15 +14,19 @@ class CD(Sampler):
         self.chains = self.params.init_chains(2)
         self.flags = []
 
-    def get_conf_grad(self, batch: Tensor) -> dict[str, Tensor]:
-        self.sample(num_steps=None, batch=batch)
+    def get_conf_grad(self, batch: Tensor, context: Tensor | None = None) -> dict[str, Tensor]:
+        # Adds context for sampling
+        self.sample(num_steps=None, batch=batch, context=context)
         return self.chains
 
     def sample(self, num_steps: int | None, **kwargs) -> None:
         batch = kwargs["batch"]
+        context = kwargs.get("context", None)  # Extraemos el contexto de kwargs
         self.chains = self.params.init_chains(num_samples=batch.shape[0], start_v=batch)
+        if context is not None:
+            self.chains["context"] = context
         self.chains = self.params.sample_state(
-            chains=self.chains, n_steps=self.num_steps, beta=self.beta
+            chains=self.chains, n_steps=self.num_steps, beta=self.beta, context=context
         )
 
     @torch.compiler.disable

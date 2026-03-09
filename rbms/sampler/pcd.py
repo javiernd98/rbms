@@ -23,13 +23,17 @@ class PCD(Sampler):
         self.num_steps = num_steps
         self.flags = []
 
-    def get_conf_grad(self, batch: Tensor):
+    def get_conf_grad(self, batch: Tensor, context: Tensor | None = None):
+        # Adds context for sampling, dont know yet why would we do it but who knows what future will bring
+        if context is not None:
+            self.chains["context"] = context
         self.sample(num_steps=None)
         return self.chains
 
     def sample(self, num_steps: int | None, **kwargs):
+        context = self.chains.get("context", None)
         self.chains = self.params.sample_state(
-            chains=self.chains, n_steps=self.num_steps, beta=self.beta
+            chains=self.chains, n_steps=self.num_steps, beta=self.beta, context=context
         )
 
     @torch.compiler.disable

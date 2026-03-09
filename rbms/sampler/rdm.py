@@ -18,14 +18,17 @@ class RDM(Sampler):
         self.flags = []
 
     def sample(self, num_steps: int | None, **kwargs):
+        context = kwargs.get("context", None)
         chains = self.params.init_chains(num_samples=self.num_chains)
+        if context is not None:
+            chains["context"] = context
         chains = self.params.sample_state(
-            chains=chains, n_steps=self.num_steps, beta=self.beta
+            chains=chains, n_steps=self.num_steps, beta=self.beta, context=context
         )
         return chains
 
-    def get_conf_grad(self, batch: Tensor):
-        self.sample(num_steps=None)
+    def get_conf_grad(self, batch: Tensor, context: Tensor | None = None):
+        self.sample(num_steps=None, context=context)
         return self.chains
 
     @torch.compiler.disable
