@@ -189,7 +189,7 @@ class BBCRBM(RBM):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(dataset.data).to(device=device, dtype=dtype)
             
-            vbias, hbias, weight_matrix, A, B = _init_parameters_cond(
+        vbias, hbias, weight_matrix, A, B = _init_parameters_cond(
             num_hiddens=num_hiddens,
             data=data,
             device=device,

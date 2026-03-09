@@ -4,7 +4,7 @@ from rbms.classes import EBM
 from rbms.ising_gaussian.classes import IGRBM
 from rbms.ising_ising.classes import IIRBM
 from rbms.potts_bernoulli.classes import PBRBM
-from rbms.bernouilli_bernouilli_conditional import BBCRBM
+from rbms.bernoulli_bernoulli_conditional import BBCRBM
 
 map_model: dict[str, type[EBM]] = {
     "BBRBM": BBRBM,

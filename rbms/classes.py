@@ -312,15 +312,15 @@ class RBM(EBM):
         """Number of hidden units"""
         ...
 
-    def sample_state(self, chains, n_steps, beta=1.0):
+    def sample_state(self, chains, n_steps, context = none, beta=1.0):
         new_chains = {
             "visible": chains["visible"].clone(),
             "weights": chains["weights"].clone(),
         }
         for _ in range(n_steps):
-            new_chains = self.sample_hiddens(chains=new_chains, beta=beta)
-            new_chains = self.sample_visibles(chains=new_chains, beta=beta)
-        new_chains = self.sample_hiddens(chains=new_chains, beta=beta)
+            new_chains = self.sample_hiddens(chains=new_chains, beta=beta, context=context)
+            new_chains = self.sample_visibles(chains=new_chains, beta=beta, context=context)
+        new_chains = self.sample_hiddens(chains=new_chains, beta=beta, context=context)
         return new_chains
 
     @property

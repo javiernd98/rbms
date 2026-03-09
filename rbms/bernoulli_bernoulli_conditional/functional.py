@@ -4,15 +4,9 @@ from torch import Tensor
 
 from rbms.bernoulli_bernoulli_conditional.classes import BBCRBM
 from rbms.bernoulli_bernoulli_conditional.implement import (
-    _compute_energy_cond,
-    _compute_energy_hiddens_cond,
-    _compute_energy_visibles_cond,
     _compute_gradient_cond,
-    _get_dynamic_biases,
     _init_chains_cond,
     _init_parameters_cond,
-    _sample_hiddens_cond,
-    _sample_visibles_cond,
 )
 from rbms.dataset.dataset_class import RBMDataset
 
