@@ -55,7 +55,7 @@ def main(args, map_model=map_model):
         device=args["device"],
         dtype=args["dtype"],
         model_type=args["model_type"], 
-        n_past=args.get("n_past", 1), 
+        n_past=args["n_past"], 
     )
     flags = ["checkpoint"]
     if not args["restore"]:
