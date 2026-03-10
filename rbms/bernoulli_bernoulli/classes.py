@@ -83,7 +83,7 @@ class BBRBM(RBM):
             dtype=dtype,
         )
 
-    def compute_energy(self, v: Tensor, h: Tensor) -> Tensor:
+    def compute_energy(self, v: Tensor, h: Tensor, context: Tensor | None = None) -> Tensor:
         return _compute_energy(
             v=v,
             h=h,
@@ -187,7 +187,7 @@ class BBRBM(RBM):
             torch.log1p(torch.exp(self.vbias)).sum() + self.num_hiddens * np.log(2)
         ).item()
 
-    def sample_hiddens(self, chains: dict[str, Tensor], beta=1) -> dict[str, Tensor]:
+    def sample_hiddens(self, chains: dict[str, Tensor], beta=1, context: Tensor | None = None) -> dict[str, Tensor]:
         chains["hidden"], chains["hidden_mag"] = _sample_hiddens(
             v=chains["visible"],
             weight_matrix=self.weight_matrix,
@@ -196,7 +196,7 @@ class BBRBM(RBM):
         )
         return chains
 
-    def sample_visibles(self, chains: dict[str, Tensor], beta=1) -> dict[str, Tensor]:
+    def sample_visibles(self, chains: dict[str, Tensor], beta=1, context: Tensor | None = None) -> dict[str, Tensor]:
         chains["visible"], chains["visible_mag"] = _sample_visibles(
             h=chains["hidden"],
             weight_matrix=self.weight_matrix,
