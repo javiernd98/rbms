@@ -250,6 +250,10 @@ def add_args_generation(parser: argparse.ArgumentParser) -> argparse.ArgumentPar
         default="test",
         help="(Defaults to test). Choose whether to extract the seed context from the train dataset (-d) or the test dataset (--test_dataset).",
     )
+    gen_args.add_argument(
+        "--seed_mode", type=str, choices=["single", "random"], default="single",
+        help="(Defaults to single). 'single' repeats the first seed N times. 'random' extracts N different random seeds from the chosen origin.",
+    ) ##have in mind adding an option
     return parser
 
 

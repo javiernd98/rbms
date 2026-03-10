@@ -15,8 +15,13 @@ def generate_conditional_sequence(
     num_visibles = params.num_visibles
     n_past = params.n_past
 
-    # Preparamos el contexto repitiendo la semilla para cada secuencia paralela
-    current_context = seed_data.unsqueeze(0).repeat(num_seqs, 1)
+    if seed_data.dim() == 1:
+        # single selection of a seed repited for num_seqs times
+        current_context = seed_data.unsqueeze(0).repeat(num_seqs, 1)
+    else:
+        # random selection of seeds across testset
+        current_context = seed_data
+
     generated_sequence = []
 
     for _ in tqdm.tqdm(range(gen_steps), desc="Generating CRBM sequence"):
