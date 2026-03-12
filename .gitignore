@@ -175,3 +175,8 @@ src/
 **/*.zip
 FacesBW.gif
 !notebooks/demo_analyse_rbm.ipynb
+
+
+*.h5
+*.png
+*.ipynb
