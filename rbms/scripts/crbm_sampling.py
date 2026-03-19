@@ -86,7 +86,7 @@ def main():
         max_start_idx = len(pool) - params.n_past
         
         # Generamos 'num_seqs' índices de inicio aleatorios dentro del pool
-        start_indices = torch.randint(0, max_start_idx, (args["num_seqs"],))
+        start_indices = torch.randperm(max_start_idx)[:args["num_seqs"]]
         
         semillas = []
         for idx in start_indices:
