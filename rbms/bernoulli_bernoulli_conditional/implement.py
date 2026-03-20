@@ -141,7 +141,7 @@ def _compute_gradient_cond(
     weight_matrix.grad = grad_weight_matrix
     vbias.grad = grad_vbias
     hbias.grad = grad_hbias
-    A.grad = grad_A
+    A.grad = 0.01*grad_A
     B.grad = grad_B
 
 def _init_chains_cond(
