@@ -13,7 +13,7 @@ from rbms.const import LOG_FILE_HEADER
 from rbms.ising_ising.classes import IIRBM
 
 
-def get_eigenvalues_history(filename: str, backend="cpu"):
+def get_eigenvalues_history(filename: str, backend="cpu", include_crbm_matrices=False):
     """
     Extracts the history of eigenvalues of the RBM's weight matrix.
 
@@ -27,12 +27,20 @@ def get_eigenvalues_history(filename: str, backend="cpu"):
     """
     saved_updates = get_saved_updates(filename)
     eigenvalues = []
+    eigenvalues_A = []
+    eigenvalues_B = []
     for upd in saved_updates:
         compute = False
+        compute_crbm = False
         with h5py.File(filename, "a") as f:
             if "singular_values" not in f[f"update_{upd}"]:
                 compute = True
                 weight_matrix = f[f"update_{upd}"]["params"]["weight_matrix"][()]
+            
+            if include_crbm_matrices and "singular_values_A" not in f[f"update_{upd}"]:
+                compute_crbm = True
+                matrix_A = f[f"update_{upd}"]["params"]["A"][()]
+                matrix_B = f[f"update_{upd}"]["params"]["B"][()]
 
         if compute:
             weight_matrix = weight_matrix.reshape(-1, weight_matrix.shape[-1])
@@ -49,11 +57,53 @@ def get_eigenvalues_history(filename: str, backend="cpu"):
                 eig = np.linalg.svd(weight_matrix, compute_uv=False)
             with h5py.File(filename, "a") as f:
                 f[f"update_{upd}"]["singular_values"] = eig
+            
+        if compute_crbm:
+            matrix_A = matrix_A.reshape(-1, matrix_A.shape[-1])
+            matrix_B = matrix_B.reshape(-1, matrix_B.shape[-1])
+            if backend == "gpu":
+                eig_A = (
+                    torch.svd(
+                        torch.from_numpy(matrix_A).to(device="cuda"), 
+                        compute_uv=False
+                    )
+                    .S.cpu()
+                    .numpy()
+                )
+                eig_B = (
+                    torch.svd(
+                        torch.from_numpy(matrix_B).to(device="cuda"), 
+                        compute_uv=False
+                        )
+                        .S.cpu()
+                        .numpy()
+                )
+            else:
+                eig_A = np.linalg.svd(matrix_A, compute_uv=False)
+                eig_B = np.linalg.svd(matrix_B, compute_uv=False)
+                
+            with h5py.File(filename, "a") as f:
+                f[f"update_{upd}"]["singular_values_A"] = eig_A
+                f[f"update_{upd}"]["singular_values_B"] = eig_B
 
         with h5py.File(filename, "a") as f:
             eig = f[f"update_{upd}"]["singular_values"][()]
             eigenvalues.append(eig.reshape(*eig.shape, 1))
+
+            if include_crbm_matrices and "singular_values_A" in f[f"update_{upd}"]:
+                eig_A = f[f"update_{upd}"]["singular_values_A"][()]
+                eigenvalues_A.append(eig_A.reshape(*eig_A.shape, 1))
+                
+                eig_B = f[f"update_{upd}"]["singular_values_B"][()]
+                eigenvalues_B.append(eig_B.reshape(*eig_B.shape, 1))
+
     eigenvalues = np.array(np.hstack(eigenvalues).T)
+
+    if include_crbm_matrices:
+        out_A = np.array(np.hstack(eigenvalues_A).T) if eigenvalues_A else None
+        out_B = np.array(np.hstack(eigenvalues_B).T) if eigenvalues_B else None
+        return saved_updates, eigenvalues, out_A, out_B
+    
     return saved_updates, eigenvalues
 
 
@@ -215,23 +265,31 @@ def log_to_csv(logs: dict[str, float], log_file: str) -> None:
         f.write(to_write + "\n")
 
 
+
+
 def compute_log_likelihood(
-    v_data: Tensor, w_data: Tensor, params: EBM, log_z: float
-) -> float:
-    """Compute the log likelihood of the RBM on the data, given its log partition function.
-
-    Args:
-        v_data (Tensor): Data to estimate the log likelihood.
-        w_data (Tensor): Weights associated to the samples.
-        params (RBM): Parameters of the RBM.
-        log_z (float): Log partition function.
-
-    Returns:
-        float: Log Likelihood.
+    v_data: Tensor, 
+    w_data: Tensor, 
+    params: EBM, 
+    log_z: float | Tensor, 
+    context: Tensor | None = None
+) -> Tensor:
+    """
+    Compute the log likelihood of the RBM on the data.
+    Supports both scalar log_z (RBM) and tensor log_z (CRBM).
     """
     w_normalized = w_data / w_data.sum()
-    return -(params.compute_energy_visibles(v=v_data) @ w_normalized).item() - log_z
-
+    
+    # 2. Calculamos la energía libre (marginalizada) para cada muestra
+    # Si es BBCRBM, usará el context para los sesgos dinámicos.
+    free_energies = params.compute_energy_visibles(v=v_data, context=context)
+    
+    # 3. La verosimilitud logarítmica para cada muestra i es: LL_i = -F_i - log(Z_i)
+    # Si log_z es un tensor [N], se resta elemento a elemento.
+    sample_ll = -free_energies - log_z
+    
+    # 4. Devolvemos la media ponderada (un único escalar tensor)
+    return (sample_ll * w_normalized).sum()
 
 @torch.jit.script
 def swap_chains(
