@@ -82,6 +82,8 @@ def _init_training(
         hyperparameters["num_hiddens"] = num_hiddens
         hyperparameters["num_chains"] = num_chains
         hyperparameters["filename"] = str(filename)
+        if hasattr(params, "n_past"):
+            hyperparameters["n_past"] = params.n_past
 
     save_model(
         filename=filename,
