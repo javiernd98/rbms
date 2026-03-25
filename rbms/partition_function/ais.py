@@ -25,9 +25,10 @@ def update_weights_ais(
     Returns:
         Tuple[Tensor, dict[str, Tensor]]: A tuple containing the updated log weights and the updated chains.
     """
-    chains = prev_params.sample_state(n_steps=n_steps, chains=chains)
-    energy_prev = prev_params.compute_energy_visibles(v=chains["visible"])
-    energy_curr = curr_params.compute_energy_visibles(v=chains["visible"])
+    context = chains.get("context", None)
+    chains = prev_params.sample_state(n_steps=n_steps, chains=chains, context=context)
+    energy_prev = prev_params.compute_energy_visibles(v=chains["visible"], context=context)
+    energy_curr = curr_params.compute_energy_visibles(v=chains["visible"], context=context)
     log_weights += -energy_curr + energy_prev
     return log_weights, chains
 
@@ -40,7 +41,7 @@ def interpolate_ebm(
         yield params_1 * (1 - step) + params_2 * step
 
 
-def compute_partition_function_ais(num_chains: int, num_beta: int, params: EBM) -> float:
+def compute_partition_function_ais(num_chains: int, num_beta: int, params: EBM, context: Tensor | None = None) -> float:
     """Compute the log partition function using Annealed Importance Sampling with temperature.
 
     Args:
@@ -59,10 +60,17 @@ def compute_partition_function_ais(num_chains: int, num_beta: int, params: EBM) 
     # Compute the reference log partition function
     ## Here the case where all the weights are 0
 
-    log_z_init = params.ref_log_z
+    # El log_z inicial ahora se calcula condicionado
+    if hasattr(params, "compute_ref_log_z"):
+        log_z_init = params.compute_ref_log_z(context=context)
+    else:
+        log_z_init = params.ref_log_z # Fallback para RBMs clásicas
+
+    
     params_ref = params.independent_model()
 
     chains = params_ref.init_chains(num_samples=num_chains)
+    chains["context"] = context
 
     log_weights = torch.zeros(num_chains, device=device)
 
@@ -80,4 +88,4 @@ def compute_partition_function_ais(num_chains: int, num_beta: int, params: EBM) 
             log_weights=log_weights,
         )
     log_z = torch.logsumexp(log_weights, 0) - np.log(num_chains) + log_z_init
-    return log_z.item()
+    return log_z
