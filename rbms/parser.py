@@ -246,7 +246,7 @@ def add_args_generation(parser: argparse.ArgumentParser) -> argparse.ArgumentPar
     gen_args.add_argument(
         "--seed_origin",
         type=str,
-        choices=["train", "test"],
+        choices=["train", "test", "all"],
         default="test",
         help="(Defaults to test). Choose whether to extract the seed context from the train dataset (-d) or the test dataset (--test_dataset).",
     )
