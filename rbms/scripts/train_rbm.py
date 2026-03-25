@@ -194,6 +194,8 @@ def load_args_from_filename(args: dict):
             args["normalize_grad"] = f["grad_args"]["normalize_grad"][()].item()
         if args["max_norm_grad"] is None:
             args["max_norm_grad"] = f["grad_args"]["max_norm_grad"][()].item()
+        if "n_past" in f["hyperparameters"].keys() and args.get("n_past") is None:
+            args["n_past"] = f["hyperparameters"]["n_past"][()].item()
 
     return args
 
@@ -206,4 +208,15 @@ if __name__ == "__main__":
     args = vars(args)
     # args = set_args_default(args, default_args=default_args)
     args = match_args_dtype(args)
+
+    """
+    if isinstance(args.get("learning_rate"), list):
+        if len(args["learning_rate"]) == 1:
+            # Si el usuario solo pasó un valor, lo dejamos como float normal
+            args["learning_rate"] = args["learning_rate"][0]
+        else:
+            # Si pasó varios, lo convertimos a tensor
+            args["learning_rate"] = torch.tensor(args["learning_rate"])
+    """
+
     main(args=args)
