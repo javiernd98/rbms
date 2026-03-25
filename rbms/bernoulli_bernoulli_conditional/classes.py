@@ -154,8 +154,8 @@ class BBCRBM(RBM):
             weight_matrix=torch.zeros_like(self.weight_matrix),
             vbias=self.vbias,
             hbias=torch.zeros_like(self.hbias),
-            A=torch.zeros_like(self.A),
-            B=torch.zeros_like(self.B),
+            A=self.A,
+            B=self.B,
             n_past=self.n_past
         )
 
@@ -246,6 +246,58 @@ class BBCRBM(RBM):
             beta=beta,
         )
         return chains
+
+    """
+    def sample_state(
+        self, chains: dict[str, Tensor], n_steps: int, beta: float = 1.0, context: Tensor | None = None
+    ) -> dict[str, Tensor]:
+        #Optimized sample_state for cRBM that precomputes dynamic biases before Gibbs steps.
+        new_chains = {
+            "visible": chains["visible"].clone(),
+            "weights": chains["weights"].clone(),
+        }
+        
+        if context is not None:
+            new_chains["context"] = context
+        elif "context" in chains:
+            new_chains["context"] = chains["context"]
+            context = chains["context"]
+            
+        dyn_vbias, dyn_hbias = _get_dynamic_biases(context, self.vbias, self.hbias, self.A, self.B)
+
+        for _ in range(n_steps):
+            # Sample Hidden
+            new_chains["hidden"], new_chains["hidden_mag"] = _sample_hiddens_cond(
+                v=new_chains["visible"], 
+                weight_matrix=self.weight_matrix, 
+                dyn_hbias=dyn_hbias, 
+                beta=beta,
+            )
+            # Sample Visible
+            new_chains["visible"], new_chains["visible_mag"] = _sample_visibles_cond(
+                h=new_chains["hidden"], 
+                weight_matrix=self.weight_matrix, 
+                dyn_vbias=dyn_vbias, 
+                beta=beta,
+            )
+            
+        new_chains["hidden"], new_chains["hidden_mag"] = _sample_hiddens_cond(
+            v=new_chains["visible"], 
+            weight_matrix=self.weight_matrix, 
+            dyn_hbias=dyn_hbias, 
+            beta=beta,
+        )
+        
+        return new_chains
+
+    """
+
+    def compute_ref_log_z(self, context: Tensor | None = None) -> Tensor:
+        dyn_vbias, dyn_hbias = _get_dynamic_biases(context, self.vbias, self.hbias, self.A, self.B)
+        # Z_base(u) = \sum_{v} exp(v * dyn_vbias) * \sum_{h} exp(h * dyn_hbias)
+        log_z_v = torch.log1p(torch.exp(dyn_vbias)).sum(dim=-1)
+        log_z_h = torch.log1p(torch.exp(dyn_hbias)).sum(dim=-1)
+        return log_z_v + log_z_h
 
     @staticmethod
     def set_named_parameters(
