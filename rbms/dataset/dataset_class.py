@@ -32,7 +32,10 @@ class RBMDataset(Dataset):
         self.device = device
         self.dtype = dtype
         self.variable_type: str = variable_type
-        self.data = torch.from_numpy(data).to(device=self.device, dtype=self.dtype)
+        self.data = torch.from_numpy(data).to(
+            #device=self.device, #comentar esto para entrenar dataset muy grandes
+            dtype=self.dtype
+            )
         # Weights should have shape n_visibles
         self.weights = (
             torch.from_numpy(weights).view(-1).to(device=self.device, dtype=self.dtype)

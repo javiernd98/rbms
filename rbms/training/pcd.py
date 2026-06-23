@@ -47,6 +47,15 @@ def train(
         # try to extract context in case its provided
         context = batch.get("context", None)
 
+        # ---> ¡AÑADE ESTAS LÍNEAS AQUÍ! <---
+        # Aseguramos el device (puedes usar train_dataset.device si lo tienes definido, 
+        # o sacarlo de los parámetros del modelo para mayor seguridad)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        # Movemos los datos del mini-batch a la GPU
+        data = data.to(device)
+        weights = weights.to(device)
+
         for opt in optimizer:
             opt.zero_grad(set_to_none=False)
 

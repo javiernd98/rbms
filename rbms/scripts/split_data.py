@@ -48,6 +48,12 @@ def create_parser():
         default=False,
         help="Remove duplicates from the dataset before splitting.",
     )
+    parser.add_argument(
+        "--no_shuffle",
+        action="store_true",
+        default=False,
+        help="Do not shuffle the dataset before splitting (useful for temporal data).",
+    )
     return parser
 
 
@@ -59,6 +65,7 @@ def split_data_train_test(
     remove_duplicates: bool = False,
     seed: int | None = None,
     alphabet: str = "protein",
+    shuffle: bool = True,
 ):
     dset_name = Path(input_file)
     dset_name = dset_name.resolve()
@@ -83,20 +90,33 @@ def split_data_train_test(
     print("    Done")
 
     rng = np.random.default_rng(seed=seed)
-    num_samples = data.shape[0]
+    num_samples = data.shape[0] 
 
-    print("Shuffling and splitting dataset...")
-    # Shuffle dataset
-    permutation_index = rng.permutation(num_samples)
     n_sample_train = int(train_size * num_samples)
 
-    data_train = data[permutation_index[:n_sample_train]].int().cpu().numpy()
-    names_train = names[permutation_index[:n_sample_train]]
-    labels_train = labels[permutation_index[:n_sample_train]].int().cpu().numpy()
+    if shuffle:
+        print("Shuffling and splitting dataset...")
+        rng = np.random.default_rng(seed=seed)
+        # Shuffle the dataset
+        permutation_index = rng.permutation(num_samples)
+        
+        
+        data_train = data[permutation_index[:n_sample_train]].int().cpu().numpy()
+        names_train = names[permutation_index[:n_sample_train]]
+        labels_train = labels[permutation_index[:n_sample_train]].int().cpu().numpy()
 
-    data_test = data[permutation_index[n_sample_train:]].int().cpu().numpy()
-    names_test = names[permutation_index[n_sample_train:]]
-    labels_test = labels[permutation_index[n_sample_train:]].int().cpu().numpy()
+        data_test = data[permutation_index[n_sample_train:]].int().cpu().numpy()
+        names_test = names[permutation_index[n_sample_train:]]
+        labels_test = labels[permutation_index[n_sample_train:]].int().cpu().numpy()
+    else:
+        print("Splitting dataset without shuffling (preserving temporal order)...")
+        data_train = data[:n_sample_train].int().cpu().numpy()
+        names_train = names[:n_sample_train]
+        labels_train = labels[:n_sample_train].int().cpu().numpy()
+
+        data_test = data[n_sample_train:].int().cpu().numpy()
+        names_test = names[n_sample_train:]
+        labels_test = labels[n_sample_train:].int().cpu().numpy()
 
     print(
         f"    train_size = {data_train.shape[0]} ({100 * data_train.shape[0] / data.shape[0]}%)"
@@ -156,6 +176,7 @@ def main():
         remove_duplicates=args["remove_duplicates"],
         seed=args["seed"],
         alphabet=args["alphabet"],
+        shuffle=not args["no_shuffle"],
     )
 
 

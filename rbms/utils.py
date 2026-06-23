@@ -270,9 +270,9 @@ def log_to_csv(logs: dict[str, float], log_file: str) -> None:
 def compute_log_likelihood(
     v_data: Tensor, 
     w_data: Tensor, 
-    params: EBM, 
-    log_z: float | Tensor, 
-    context: Tensor | None = None
+    params: BBRBM, 
+    log_z: float #| Tensor, 
+    #context: Tensor | None = None
 ) -> Tensor:
     """
     Compute the log likelihood of the RBM on the data.
@@ -282,7 +282,9 @@ def compute_log_likelihood(
     
     # 2. Calculamos la energía libre (marginalizada) para cada muestra
     # Si es BBCRBM, usará el context para los sesgos dinámicos.
-    free_energies = params.compute_energy_visibles(v=v_data, context=context)
+    free_energies = params.compute_energy_visibles(v=v_data,
+                                                   #context=context
+                                                   )
     
     # 3. La verosimilitud logarítmica para cada muestra i es: LL_i = -F_i - log(Z_i)
     # Si log_z es un tensor [N], se resta elemento a elemento.

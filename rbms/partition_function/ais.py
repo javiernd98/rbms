@@ -25,10 +25,13 @@ def update_weights_ais(
     Returns:
         Tuple[Tensor, dict[str, Tensor]]: A tuple containing the updated log weights and the updated chains.
     """
-    context = chains.get("context", None)
-    chains = prev_params.sample_state(n_steps=n_steps, chains=chains, context=context)
-    energy_prev = prev_params.compute_energy_visibles(v=chains["visible"], context=context)
-    energy_curr = curr_params.compute_energy_visibles(v=chains["visible"], context=context)
+    #context = chains.get("context", None)
+    chains = prev_params.sample_state(n_steps=n_steps, chains=chains, #context=context
+                                      )
+    energy_prev = prev_params.compute_energy_visibles(v=chains["visible"], #context=context
+                                                      )
+    energy_curr = curr_params.compute_energy_visibles(v=chains["visible"], #context=context
+                                                      )
     log_weights += -energy_curr + energy_prev
     return log_weights, chains
 

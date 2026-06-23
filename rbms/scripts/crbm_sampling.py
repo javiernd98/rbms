@@ -32,6 +32,86 @@ def main():
     args = vars(parser.parse_args())
     args = match_args_dtype(args)
 
+
+    print("Loading model...")
+    last_update = get_saved_updates(args["filename"])[-1]
+    
+    params = load_params(
+        filename=args["filename"], 
+        index=last_update,   
+        device=args["device"], 
+        dtype=args["dtype"], 
+        map_model=map_model
+    )
+    
+    dataset_path = args["dataset"]
+    print(f"Loading dataset from {dataset_path}...")
+    data, _, _, _ = load_HDF5(filename=dataset_path, use_weights=False, device=args["device"])
+    data = torch.from_numpy(data).to(device=args["device"], dtype=args["dtype"])
+    
+    total_samples = data.shape[0]
+
+    # --- IDENTIFICACIÓN AUTOMÁTICA DEL SPLIT ---
+    with h5py.File(args["filename"], "r") as f:
+        # Comprobamos si en el entrenamiento se usó un archivo de test separado
+        # (Si se usó --test_dataset, se guarda el nombre; si no, suele ser None o b"")
+        trained_with_separate_test = False
+        if "dataset_args" in f.keys() and "test_dataset" in f["dataset_args"].keys():
+            test_val = f["dataset_args"]["test_dataset"][()]
+            if test_val and test_val != b"None":
+                trained_with_separate_test = True
+
+        if "dataset_args" in f.keys() and "train_size" in f["dataset_args"].keys():
+            train_size_saved = f["dataset_args"]["train_size"][()].item()
+        else:
+            train_size_saved = 0.6 # Default por seguridad
+
+    # --- LÓGICA DE SEED_ORIGIN MEJORADA ---
+    # Si el usuario no especifica seed_origin y detectamos split manual, usamos todo el archivo
+    seed_origin = args.get("seed_origin", "test")
+    
+    # Si hemos pasado un dataset específico para muestrear y el modelo ya sabe 
+    # que los datos vienen separados, o si el usuario pide explícitamente "all"
+    if trained_with_separate_test or seed_origin == "all":
+        print("Using the ENTIRE provided dataset as seed pool (no internal split).")
+        pool = data
+    elif seed_origin == "train":
+        split_idx = int(train_size_saved * total_samples)
+        print(f"Using TRAIN portion (0 to {split_idx})...")
+        pool = data[:split_idx]
+    else: # seed_origin == "test" (por defecto en el parser)
+        split_idx = int(train_size_saved * total_samples)
+        print(f"Using TEST portion ({split_idx} to end)...")
+        pool = data[split_idx:]
+
+    # --- LÓGICA DE SEED_MODE (Corrigiendo el problema de repetidos y añadiendo 'all') ---
+    seed_mode = args.get("seed_mode", "random")
+    max_start_idx = len(pool) - params.n_past
+
+    if seed_mode == "random":
+        num_seqs = args.get("num_seqs", 1)
+        print(f"Modo RANDOM: Extrayendo {num_seqs} semillas ÚNICAS...")
+        
+        # CAMBIO CLAVE: Usamos randperm para garantizar que no hay índices repetidos
+        start_indices = torch.randperm(max_start_idx)[:num_seqs]
+        
+        semillas = [pool[idx : idx + params.n_past].flatten() for idx in start_indices]
+        seed_data = torch.stack(semillas)
+        
+    elif seed_mode == "all":
+        # Nueva opción para usar todo el dataset de test como semillas
+        print(f"Modo ALL: Usando todas las ventanas posibles ({max_start_idx}) como semillas...")
+        start_indices = torch.arange(max_start_idx)
+        semillas = [pool[idx : idx + params.n_past].flatten() for idx in start_indices]
+        seed_data = torch.stack(semillas)
+        args["num_seqs"] = max_start_idx # Actualizamos para que coincida con la generación
+
+    elif seed_mode == "single":
+        print(f"Modo SINGLE: Extrayendo la primera semilla disponible...")
+        seed_data = pool[:params.n_past].flatten()
+        args["num_seqs"] = 1
+
+    """
     print("Loading model...")
     # Buscamos todos los updates guardados y nos quedamos con el último (-1)
     last_update = get_saved_updates(args["filename"])[-1]
@@ -93,7 +173,7 @@ def main():
             semillas.append(pool[idx : idx + params.n_past].flatten())
         # Apilamos todas las semillas en una matriz 2D
         seed_data = torch.stack(semillas)
-
+    """
     gibbs_steps = args.get("gibbs_steps") if args.get("gibbs_steps") is not None else 50
 
     print("Generating sequences...")
